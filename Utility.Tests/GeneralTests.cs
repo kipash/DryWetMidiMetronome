@@ -57,9 +57,11 @@ namespace MidiMetronome.Tests
 
             Debug.Log($"{name}");
 
-            foreach (var x in ticks)
+            for (int i = 0; i < Mathf.Clamp(ticks.Length - 1, 0, float.MaxValue); i++)
             {
-                Debug.Log($"[{x.BPM:F0}] {x.Time:0.###}s");
+                var current = ticks[i];
+                var next = ticks[i + 1];
+                Debug.Log($"[{current.BPM_Seconds:F2}] {current.Time:0.###}s => DIFF: {next.Time - current.Time:F2}");
             }
 
             Debug.Log("======================");

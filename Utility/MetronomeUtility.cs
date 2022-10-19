@@ -17,12 +17,7 @@ namespace MidiMetronome
             using (MemoryStream ms = new MemoryStream(raw))
                 return GenerateBeats(MidiFile.Read(ms));
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="midi"></param>
-        /// <param name="stepPrecision">Sampling interval in seconds</param>
-        /// <returns></returns>
+
         public static TickInfo[] GenerateBeats(MidiFile midi)
         {
             //Tempo map contains all tempo and duration information (sort of a timeline)
@@ -30,6 +25,8 @@ namespace MidiMetronome
 
             //Total duration of the midi file
             TimeSpan duration = midi.GetDuration<MetricTimeSpan>();
+
+            Debug.Log($"Duration: {duration.TotalSeconds}");
 
             //Buffer to contain all 
             TickInfo[] changes = null;
@@ -46,17 +43,52 @@ namespace MidiMetronome
                 };
             }
 
+            // -------------------------------------
+
             List<TickInfo> ticks = new();
+
+            //Last set tick
+            TickInfo lastTick = new TickInfo();
+            //Scheduled next tick, used for tempo change
+            TickInfo scheduledTick = new TickInfo();
+
+            void AddTick(double time, double bpm)
+            {
+                var info = new TickInfo()
+                {
+                    Time = time,
+                    BPM = bpm
+                };
+
+                lastTick = info;
+                ticks.Add(info);
+            }
+
+            void AddTickAgain()
+            {
+                lastTick = scheduledTick;
+                ticks.Add(scheduledTick);
+            }
+
+            void ScheduleTick(double t, double bpm)
+            {
+                scheduledTick.Time = t;
+                scheduledTick.BPM = bpm;
+            }
+            void ScheduleTickAgain()
+            {
+                scheduledTick.Time = lastTick.Time + lastTick.BPM_Seconds;
+                scheduledTick.BPM = lastTick.BPM;
+            }
 
             for (int i = 0; i < changes.Length; i++)
             {
                 bool isLast = (i + 1) >= changes.Length;
                 bool isFirst = i == 0;
 
-
                 TickInfo current = changes[i];
-
                 TickInfo next;
+
                 if (isLast)
                 {
                     next.BPM = current.BPM;
@@ -65,42 +97,46 @@ namespace MidiMetronome
                 else
                     next = changes[i + 1];
 
-                //  How far is the metronome in its cycle
-                double progress = next.Time % current.BPM_Seconds;
-
-                // [First tick]
-                if(isFirst)
+                
+                // Initial beat
+                if (isFirst)
                 {
-                    TickInfo firstTick = new()
-                    {
-                        Time = 0,
-                        BPM = current.BPM
-                    };
-                    ticks.Add(firstTick);
+                    AddTick(0, current.BPM);
+                    ScheduleTickAgain();
                 }
 
-                // [All full ticks] - fit as many full beats inside the duration between current and next
-                double fullStep = current.BPM_Seconds;
+                bool hasSegmentTicks = false;
 
-                double fullSegmentDuration = next.Time - current.Time;
-                int fullSegmentTicksCount = (int)(fullSegmentDuration / current.BPM);
-                for (int seg = 1; seg <= fullSegmentTicksCount; seg++)
+                //Solve current segment and schedule a tempo change if needed
+                while(true)
                 {
-                    TickInfo currentTick = new()
+                    bool scheduledTickIsInSegment = scheduledTick.Time <= next.Time;
+
+                    if (scheduledTickIsInSegment) //no tempo change
                     {
-                        Time = current.Time + current.BPM_Seconds * seg,
-                        BPM = current.BPM
-                    };
-                    ticks.Add(currentTick);
-                }
+                        AddTickAgain();
+                        ScheduleTickAgain();
 
-                // Inset the first tick of the new tempo
-                TickInfo nextSegmentTick = new()
-                {
-                    Time = next.Time,
-                    BPM = next.BPM
-                };
-                ticks.Add(nextSegmentTick);
+                        hasSegmentTicks = true;
+                    }
+                    else if (isLast) // last segment exit
+                    {
+                        break;
+                    }
+                    else // Compensating tempo change 
+                    {
+                        double diff = scheduledTick.Time - next.Time;
+                        double tempoChange = diff * (next.BPM / lastTick.BPM);
+
+                        ScheduleTick(next.Time + tempoChange, next.BPM);
+
+                        break;
+                    }
+
+                    //Assert
+                    if (lastTick.Time == scheduledTick.Time)
+                        throw new Exception($"Loop prevented! Aborting metronome tick generation.");
+                }
             }
 
             return ticks.ToArray();
