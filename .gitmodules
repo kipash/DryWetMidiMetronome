@@ -1,0 +1,3 @@
+[submodule "Assets/Metronome"]
+	path = Assets/Metronome
+	url = https://github.com/ChrissTman/DryWetMidiMetronome
