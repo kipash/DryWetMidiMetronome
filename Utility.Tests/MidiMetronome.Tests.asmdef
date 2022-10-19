@@ -1,0 +1,21 @@
+{
+    "name": "MidiMetronome.Tests",
+    "rootNamespace": "",
+    "references": [
+        "MidiMetronome"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Melanchall.DryWetMidi.dll",
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
