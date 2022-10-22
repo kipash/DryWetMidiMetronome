@@ -1,0 +1,12 @@
+{
+  "name": "com.Kipash.Metronome",
+  "version": "0.0.1",
+  "displayName": "Midi Metronome",
+  "description": "Metronome for DryWetMidi library",
+  "unity": "2019.1",
+  "unityRelease": "0b5",
+   "author": {
+     "name": "Kryštof Toman",
+     "url": "https://github.com/ChrissTman"
+   }
+}

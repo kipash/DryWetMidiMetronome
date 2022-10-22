@@ -1,0 +1,164 @@
+using Melanchall.DryWetMidi.Core;
+using Melanchall.DryWetMidi.Interaction;
+using System;
+using System.Linq;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using UnityEngine;
+
+namespace MidiMetronome
+{
+    public static class MetronomeUtility
+    {
+        public static MetronomeInfo GenerateBeats(string path) => GenerateBeats(MidiFile.Read(path));
+        public static MetronomeInfo GenerateBeats(byte[] raw)
+        {
+            using (MemoryStream ms = new MemoryStream(raw))
+                return GenerateBeats(MidiFile.Read(ms));
+        }
+        public static MetronomeInfo GenerateBeats(MidiFile midi)
+        {
+            var info = new MetronomeInfo();
+            var tempoMap = midi.GetTempoMap();
+
+            //Total duration of the midi file
+            TimeSpan duration = midi.GetDuration<MetricTimeSpan>();
+
+            //Buffer to contain all 
+            TickInfo[] changes = null;
+
+            var rawTempoChanges = tempoMap.GetTempoChanges();
+            var rawTimeSignatureChanges = tempoMap.GetTimeSignatureChanges();
+
+            changes = rawTempoChanges.Select(x => TickInfo.Create(x, tempoMap))
+                                     .ToArray();
+
+            //Create fake beat changes during signature changes. Beat change to a same BPM won't do any harm and it forces the .
+            //var timeSignaturesAsBeatChanges = rawTimeSignatureChanges.Select(x =>
+            //{
+            //    var span = new MidiTimeSpan(x.Time);
+            //    var bpm = tempoMap.GetTempoAtTime(span).BeatsPerMinute;
+            //    return new TickInfo().Create(x.Time, bpm, tempoMap);
+            //});
+            //
+            //changes = changes.Concat(timeSignaturesAsBeatChanges)
+            //                       .GroupBy(x => x.Time)
+            //                       .Select(x => x.First())
+            //                       .OrderBy(x => x.Time)
+            //                       .ToArray();
+
+            //rawTimeSignatureChanges.First().Value.
+
+            if (changes == null)
+            {
+                var initialTempo = tempoMap.GetTempoAtTime(new MetricTimeSpan());
+
+                changes = new TickInfo[] {
+                    TickInfo.Create(0, initialTempo.BeatsPerMinute, tempoMap)
+                };
+            }
+
+            // -------------------------------------
+
+            List<TickInfo> ticks = new();
+
+            //Last set tick
+            TickInfo lastTick = new();
+            //Scheduled next tick, used for tempo change
+            TickInfo scheduledTick = new();
+
+            void AddTick(double time, double bpm)
+            {
+                var info = TickInfo.Create(time, bpm, tempoMap);
+
+                lastTick = info;
+                ticks.Add(info);
+            }
+
+            void AddScheduledTick()
+            {
+                lastTick = scheduledTick; //TickInfo.Create(scheduledTick.Time, scheduledTick.BPM, tempoMap);
+                ticks.Add(lastTick);
+            }
+
+            void ScheduleTick(double t, double bpm)
+            {
+                scheduledTick = TickInfo.Create(t, bpm, tempoMap);
+            }
+            void ScheduleTickBasedOnLast()
+            {
+                scheduledTick = TickInfo.Create(lastTick.Time + lastTick.BeatDuration, lastTick.BPM, tempoMap);
+            }
+
+            for (int i = 0; i < changes.Length; i++)
+            {
+                bool isLast = (i + 1) >= changes.Length;
+                bool isFirst = i == 0;
+
+                TickInfo current = changes[i];
+                TickInfo next = new TickInfo(); //default state
+
+                if (isLast)
+                    next = TickInfo.Create(duration.TotalSeconds, current.BPM, tempoMap);
+                else
+                    next = changes[i + 1];
+
+                //Debug.Log($"CHANGE: {current.Time} - {current.ScaledBPM:F0} - {current.TimeSignatureNumber}/{current.TimeSignatureDenumerator}");
+
+                // Initial beat
+                if (isFirst)
+                {
+                    AddTick(0, current.BPM);
+                    ScheduleTickBasedOnLast();
+                }
+
+                //Solve current segment and schedule a tempo change if needed
+                while (true)
+                {
+                    bool scheduledTickIsInSegment = scheduledTick.Time <= next.Time;
+
+                    if (scheduledTickIsInSegment) //no tempo change
+                    {
+                        //Debug.Log($"ADD {scheduledTick.Time}s = bpm:{scheduledTick.BPM:F0} | Takt:{scheduledTick.TimeSignatureDenumerator} | Beat_Dur: {scheduledTick.BeatDuration}");
+                        AddScheduledTick();
+                        ScheduleTickBasedOnLast();
+                    }
+                    else if (isLast) // last segment exit
+                    {
+                        break;
+                    }
+                    else // Compensating tempo change 
+                    {
+                        double diff = scheduledTick.Time - next.Time;
+                        double tempoChange = diff * (next.ScaledBPM / lastTick.ScaledBPM);
+
+                        ScheduleTick(next.Time + tempoChange, next.BPM);
+
+                        break;
+                    }
+
+                    //Assert
+                    if (lastTick.Time == scheduledTick.Time || lastTick.BeatDuration == 0)
+                        throw new Exception($"Loop prevented! Aborting metronome tick generation.");
+                }
+            }
+
+            info.Beats = ticks.ToArray();
+            info.Changes = changes;
+
+            return info;
+        }
+        public static SortedList<float, TickInfo> ComposeSortedList(MetronomeInfo info)
+        {
+            var list = new SortedList<float, TickInfo>();
+
+            foreach(var x in info.Beats)
+            {
+                list.Add((float)x.Time, x);
+            }
+
+            return list;
+        }
+    }
+}

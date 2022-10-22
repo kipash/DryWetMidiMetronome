@@ -40,11 +40,11 @@ namespace MidiMetronome.Tests
         }
         void TestMidi(byte[] rawMidi, string name)
         {
-            TickInfo[] ticks = null;
+            MetronomeInfo info = null;
 
             try
             {
-                ticks = MetronomeUtility.GenerateBeats(rawMidi);
+                info = MetronomeUtility.GenerateBeats(rawMidi);
             }
             catch (Exception e)
             {
@@ -52,19 +52,30 @@ namespace MidiMetronome.Tests
                 Debug.LogException(e);
             }
 
-            if (ticks == null)
-                return;
+            if (info == null)
+                throw new Exception("Utility have failed!");
 
-            Debug.Log($"{name}");
 
+            
+
+            Debug.Log($"{name} - Beats:{info.Beats.Length}, Changes: {info.Changes.Length}");
+
+            //Debug.Log($"{string.Join("\n", info.Changes.Select(x => $"[{x.BPM:F0}] - {x.TimeSignatureNumber}/{x.TimeSignatureDenumerator}"))}");
+
+            Debug.Log("======================");
+        }
+
+        void TestTiming(TickInfo[] ticks)
+        {
             for (int i = 0; i < Mathf.Clamp(ticks.Length - 1, 0, float.MaxValue); i++)
             {
                 var current = ticks[i];
                 var next = ticks[i + 1];
-                Debug.Log($"[{current.BPM_Seconds:F2}] {current.Time:0.###}s => DIFF: {next.Time - current.Time:F2}");
-            }
 
-            Debug.Log("======================");
+                Assert.IsTrue(Approximately(current.Time + current.BeatDuration, next.Time), $"Difference between {current.Time} and {next.Time} isn't {current.BeatDuration}");
+            }
         }
+
+        bool Approximately(double f1, double f2) => Mathf.Approximately((float)f1, (float)f2);
     }
 }
