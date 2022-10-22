@@ -1,5 +1,5 @@
 {
-  "name": "com.Kipash.Metronome",
+  "name": "com.kipash.metronome",
   "version": "0.0.1",
   "displayName": "Midi Metronome",
   "description": "Metronome for DryWetMidi library",
