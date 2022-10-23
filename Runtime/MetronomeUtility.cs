@@ -34,22 +34,6 @@ namespace MidiMetronome
             changes = rawTempoChanges.Select(x => TickInfo.Create(x, tempoMap))
                                      .ToArray();
 
-            //Create fake beat changes during signature changes. Beat change to a same BPM won't do any harm and it forces the .
-            //var timeSignaturesAsBeatChanges = rawTimeSignatureChanges.Select(x =>
-            //{
-            //    var span = new MidiTimeSpan(x.Time);
-            //    var bpm = tempoMap.GetTempoAtTime(span).BeatsPerMinute;
-            //    return new TickInfo().Create(x.Time, bpm, tempoMap);
-            //});
-            //
-            //changes = changes.Concat(timeSignaturesAsBeatChanges)
-            //                       .GroupBy(x => x.Time)
-            //                       .Select(x => x.First())
-            //                       .OrderBy(x => x.Time)
-            //                       .ToArray();
-
-            //rawTimeSignatureChanges.First().Value.
-
             if (changes == null)
             {
                 var initialTempo = tempoMap.GetTempoAtTime(new MetricTimeSpan());
@@ -76,11 +60,7 @@ namespace MidiMetronome
                 ticks.Add(info);
             }
 
-            void AddScheduledTick()
-            {
-                lastTick = scheduledTick; //TickInfo.Create(scheduledTick.Time, scheduledTick.BPM, tempoMap);
-                ticks.Add(lastTick);
-            }
+            void AddScheduledTick() => AddTick(scheduledTick.Time, scheduledTick.BPM);
 
             void ScheduleTick(double t, double bpm)
             {
@@ -141,6 +121,21 @@ namespace MidiMetronome
                     //Assert
                     if (lastTick.Time == scheduledTick.Time || lastTick.BeatDuration == 0)
                         throw new Exception($"Loop prevented! Aborting metronome tick generation.");
+                }
+            }
+
+            //Mark Measure Beats
+            int beatCount = 0;
+            for (int i = 0; i < ticks.Count; i++)
+            {
+                beatCount++;
+                if (ticks[i].TimeSignatureNumber <= beatCount)
+                {
+                    var tick = ticks[i];
+                    tick.IsMeasureBeat = true;
+                    ticks[i] = tick;
+
+                    beatCount = 0;
                 }
             }
 

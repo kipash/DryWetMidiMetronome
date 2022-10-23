@@ -58,7 +58,7 @@ namespace MidiMetronome.Tests
 
             
 
-            Debug.Log($"{name} - Beats:{info.Beats.Length}, Changes: {info.Changes.Length}");
+            Debug.Log($"{name} - Beats:{info.Beats.Length}, Changes: {info.Changes.Length}, Measure beats: {info.Beats.Count(x => x.IsMeasureBeat)}");
 
             //Debug.Log($"{string.Join("\n", info.Changes.Select(x => $"[{x.BPM:F0}] - {x.TimeSignatureNumber}/{x.TimeSignatureDenumerator}"))}");
 
