@@ -9,15 +9,21 @@ using UnityEngine;
 
 namespace MidiMetronome
 {
+    public enum BPMScaling
+    {
+        DoNotScaleWithDenumerator,
+        ScaleWithDenumerator
+    }
+
     public static class MetronomeUtility
     {
-        public static MetronomeInfo GenerateBeats(string path) => GenerateBeats(MidiFile.Read(path));
-        public static MetronomeInfo GenerateBeats(byte[] raw)
+        public static MetronomeInfo GenerateBeats(string path, BPMScaling scaling) => GenerateBeats(MidiFile.Read(path), scaling);
+        public static MetronomeInfo GenerateBeats(byte[] raw, BPMScaling scaling)
         {
             using (MemoryStream ms = new MemoryStream(raw))
-                return GenerateBeats(MidiFile.Read(ms));
+                return GenerateBeats(MidiFile.Read(ms), scaling);
         }
-        public static MetronomeInfo GenerateBeats(MidiFile midi)
+        public static MetronomeInfo GenerateBeats(MidiFile midi, BPMScaling scaling)
         {
             var info = new MetronomeInfo();
             var tempoMap = midi.GetTempoMap();
@@ -31,7 +37,7 @@ namespace MidiMetronome
             var rawTempoChanges = tempoMap.GetTempoChanges();
             var rawTimeSignatureChanges = tempoMap.GetTimeSignatureChanges();
 
-            changes = rawTempoChanges.Select(x => TickInfo.Create(x, tempoMap))
+            changes = rawTempoChanges.Select(x => TickInfo.Create(x, tempoMap, scaling))
                                      .ToArray();
 
             if (changes == null)
@@ -39,7 +45,7 @@ namespace MidiMetronome
                 var initialTempo = tempoMap.GetTempoAtTime(new MetricTimeSpan());
 
                 changes = new TickInfo[] {
-                    TickInfo.Create(0, initialTempo.BeatsPerMinute, tempoMap)
+                    TickInfo.Create(0, initialTempo.BeatsPerMinute, tempoMap, scaling)
                 };
             }
 
@@ -54,7 +60,7 @@ namespace MidiMetronome
 
             void AddTick(double time, double bpm)
             {
-                var info = TickInfo.Create(time, bpm, tempoMap);
+                var info = TickInfo.Create(time, bpm, tempoMap, scaling);
 
                 lastTick = info;
                 ticks.Add(info);
@@ -64,11 +70,11 @@ namespace MidiMetronome
 
             void ScheduleTick(double t, double bpm)
             {
-                scheduledTick = TickInfo.Create(t, bpm, tempoMap);
+                scheduledTick = TickInfo.Create(t, bpm, tempoMap, scaling);
             }
             void ScheduleTickBasedOnLast()
             {
-                scheduledTick = TickInfo.Create(lastTick.Time + lastTick.BeatDuration, lastTick.BPM, tempoMap);
+                scheduledTick = TickInfo.Create(lastTick.Time + lastTick.BeatDuration, lastTick.BPM, tempoMap, scaling);
             }
 
             for (int i = 0; i < changes.Length; i++)
@@ -80,7 +86,7 @@ namespace MidiMetronome
                 TickInfo next = new TickInfo(); //default state
 
                 if (isLast)
-                    next = TickInfo.Create(duration.TotalSeconds, current.BPM, tempoMap);
+                    next = TickInfo.Create(duration.TotalSeconds, current.BPM, tempoMap, scaling);
                 else
                     next = changes[i + 1];
 

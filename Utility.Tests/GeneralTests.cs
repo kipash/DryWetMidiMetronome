@@ -44,7 +44,7 @@ namespace MidiMetronome.Tests
 
             try
             {
-                info = MetronomeUtility.GenerateBeats(rawMidi);
+                info = MetronomeUtility.GenerateBeats(rawMidi, BPMScaling.ScaleWithDenumerator);
             }
             catch (Exception e)
             {
