@@ -128,8 +128,7 @@ namespace MidiMetronome
             int beatCount = 0;
             for (int i = 0; i < ticks.Count; i++)
             {
-                beatCount++;
-                if (ticks[i].TimeSignatureNumber <= beatCount)
+                if (ticks[i].TimeSignatureNumber <= beatCount || i == 0)
                 {
                     var tick = ticks[i];
                     tick.IsMeasureBeat = true;
@@ -137,6 +136,7 @@ namespace MidiMetronome
 
                     beatCount = 0;
                 }
+                beatCount++;
             }
 
             info.Beats = ticks.ToArray();
